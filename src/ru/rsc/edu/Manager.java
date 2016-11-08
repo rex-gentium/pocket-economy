@@ -2,6 +2,14 @@ package ru.rsc.edu;
 
 import java.time.*;
 
+import ru.rsc.edu.collections.*;
+import ru.rsc.edu.entities.*;
+import ru.rsc.edu.exceptions.*;
+
+/* Базовый класс, релизующий приложение
+ * позволяет получать доступ к счетам, категориям, транзакциям и отчётам
+ * и регистрировать новые объекты
+ * */
 public class Manager {
 	private AccountList accountManager;
 	private CategoryList categoryManager;
@@ -15,51 +23,8 @@ public class Manager {
 		reportManager = new ReportList();
 	}
 	
-	// registers
-	public int registerAccount(int accNumber, String accName) {
-		return accountManager.add(accNumber, accName);
-	}
-	
-	public int registerCategory(String catName, int superCategoryId) {
-		if (categoryManager.getById(superCategoryId) == null) {
-			System.out.println("No such category with id " + superCategoryId);
-			return -1;
-		}
-		return categoryManager.add(catName, superCategoryId);
-	}
-	
-	public int registerCategory(String name, String superCategoryName) {
-		Category superCategory = categoryManager.getByName(superCategoryName);
-		if (superCategory == null) {
-			System.out.println("No such category with name " + superCategoryName);
-			return -1;
-		}
-		return registerCategory(name, superCategory.getId());
-	}
-	
-	public int registerCategory(String catName) {
-		return registerCategory(catName, categoryManager.getRoot().getId());
-	}
-		
-	public int registerTransaction(int accountId, String category, LocalDateTime dateTime, long amount) {
-		if (accountManager.getById(accountId) == null) {
-			System.out.println("No such account with id " + accountId);
-			return -1;
-		}
-		Category cat = categoryManager.getByName(category);
-		if (cat == null) {
-			System.out.println("No such category with name " + category);
-			return -1;
-		}
-		return transactionManager.add(accountId, cat.getId(), dateTime, amount);
-	}
-	
-	public int registerTransaction(int accountId, LocalDateTime dateTime, long amount) {
-		return registerTransaction(accountId, categoryManager.getRoot().getName(), dateTime, amount);
-	}
-	
 	// getters
-	public Account getAccountById(int id) {
+	/*public Account getAccountById(int id) {
 		return accountManager.getById(id);
 	}
 	
@@ -77,13 +42,103 @@ public class Manager {
 	
 	public int getRootCategoryId() {
 		return categoryManager.getRoot().getId();
+	}*/
+		
+	// registering
+	public void registerAccount(int accNumber, String accName) {
+		try {
+			accountManager.add(new Account(accNumber, accName));
+		}
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+	
+	public void registerCategory(String catName, String superCategoryName) {
+		Category superCat = categoryManager.getByName(superCategoryName);
+		if (superCat == null) {
+			alert(new NotFoundException("No such category with name " + superCategoryName));
+			return;
+		}
+		
+		try {
+			categoryManager.add(new Category(catName, superCat));
+		}
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+	
+	public void registerCategory(String catName) {
+		try {
+			categoryManager.add(new Category(catName));
+		}
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+		
+	public void registerTransaction(int accountNumber, String category, LocalDateTime dateTime, long amount) {
+		Account acc = accountManager.getByNumber(accountNumber);
+		if (acc == null) {
+			alert(new NotFoundException("No such account with number " + accountNumber));
+			return;
+		}
+		Category cat = categoryManager.getByName(category);
+		if (cat == null) {
+			alert(new NotFoundException("No such category with name " + category));
+			return;
+		}
+		
+		try {
+			transactionManager.add(new Transaction(acc, cat, dateTime, amount));
+		} 
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+	
+	public void registerTransaction(int accountNumber, LocalDateTime dateTime, long amount) {
+		Account acc = accountManager.getByNumber(accountNumber);
+		if (acc == null) {
+			alert(new NotFoundException("No such account with number " + accountNumber));
+			return;
+		}
+		try {
+			transactionManager.add(new Transaction(acc, dateTime, amount));
+		} 
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+	
+	public void registerReport(int accountNumber, LocalDate beginDate, LocalDate endDate) {
+		Report report = buildReport(accountNumber, beginDate, endDate);
+		try {
+			reportManager.add(report);
+		}
+		catch (AlreadyExistsException e) {
+			alert(e);
+		}
+	}
+	
+	public Report buildReport(int accountNumber, LocalDate beginDate, LocalDate endDate) {
+		Account account = accountManager.getByNumber(accountNumber);
+		if (account == null) {
+			alert(new NotFoundException("No such account with number " + accountNumber));
+			return null;
+		}
+		TransactionList reportData = transactionManager.selectByAccount(account)
+			.selectAfterDate(beginDate.minusDays(1))
+			.selectBeforeDate(endDate.plusDays(1));
+		return new Report(account, beginDate, endDate, reportData);
 	}
 	
 	// comments
-	public void commentAccount(int accountId, String comment) {
-		Account account = accountManager.getById(accountId);
+	public void commentAccount(int accountNumber, String comment) {
+		Account account = accountManager.getByNumber(accountNumber);
 		if (account == null) {
-			System.out.println("No account with id " + accountId);
+			alert(new NotFoundException("No such account with number " + accountNumber));
 			return;
 		}
 		account.setComment(comment);
@@ -98,29 +153,7 @@ public class Manager {
 		transaction.setComment(comment);
 	}
 	
-	// report without save
-	public Report generateReport(int accountId, LocalDate beginDate, LocalDate endDate) {
-		Account account = accountManager.getById(accountId);
-		if (account == null) {
-			System.out.println("No account with id " + accountId);
-			return null;
-		}
-		TransactionList reportData = transactionManager.getByAccount(accountId)
-			.getAfterDate(beginDate.minusDays(1))
-			.getBeforeDate(endDate.plusDays(1));
-		return new Report(accountId, beginDate, endDate, reportData);
-	}
-	
-	// report with save
-	public int generateAndRegisterReport(int accountId, LocalDate beginDate, LocalDate endDate) {
-		Account account = accountManager.getById(accountId);
-		if (account == null) {
-			System.out.println("No account with id " + accountId);
-			return -1;
-		}
-		TransactionList reportData = transactionManager.getByAccount(accountId)
-			.getAfterDate(beginDate.minusDays(1))
-			.getBeforeDate(endDate.plusDays(1));
-		return reportManager.add(accountId, beginDate, endDate, reportData);
+	public void alert(Exception ex) {
+		ex.printStackTrace();
 	}
 }

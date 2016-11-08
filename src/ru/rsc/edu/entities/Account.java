@@ -1,17 +1,19 @@
-package ru.rsc.edu;
+package ru.rsc.edu.entities;
 
 public class Account {
-	private static int idSequence = 0;
-	private int id;
 	private int number; // unique
 	private String name;
 	private String comment;
 	
 	public Account(int number, String name) {
-		this.id = idSequence++;
 		this.number = number;
 		this.name = name;
 		this.comment = null;
+	}
+	
+	public boolean equals(Account acc) {
+		// структурную идентичность определяет номер
+		return (this.number == acc.number);
 	}
 	
 	// setters
@@ -28,10 +30,6 @@ public class Account {
 	}
 	
 	// getters
-	public int getId() {
-		return id;
-	}
-	
 	public int getNumber() {
 		return number;
 	}

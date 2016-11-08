@@ -1,7 +1,10 @@
-package ru.rsc.edu;
+package ru.rsc.edu.collections;
 
 import java.time.*;
 import java.util.*;
+
+import ru.rsc.edu.entities.*;
+import ru.rsc.edu.exceptions.AlreadyExistsException;
 
 public class TransactionList {
 	List<Transaction> transactions;
@@ -14,14 +17,15 @@ public class TransactionList {
 		transactions = initial;
 	}
 	
-	public List<Transaction> get() {
-		return transactions;
+	public void add(Transaction t) throws AlreadyExistsException {
+		if (!transactions.contains(t))
+			transactions.add(t);
+		else throw new AlreadyExistsException("Transaction " + t.toString() + " already exists");
 	}
 	
-	public int add(int accountId, int categoryId, LocalDateTime dateTime, long amount) {
-		Transaction trans = new Transaction(accountId, categoryId, dateTime, amount);
-		transactions.add(trans);
-		return trans.getId();
+	// getters
+	public List<Transaction> get() {
+		return transactions;
 	}
 	
 	public Transaction getById(int id) {
@@ -31,23 +35,23 @@ public class TransactionList {
 		return null;
 	}
 	
-	public TransactionList getByAccount(int accountId) {
+	public TransactionList selectByAccount(Account acc) {
 		List<Transaction> result = new ArrayList<Transaction>();
 		for (Transaction transaction : transactions)
-			if (transaction.getAccountId() == accountId)
+			if (transaction.getAccount().equals(acc))
 				result.add(transaction);
 		return new TransactionList(result);
 	}
 	
-	public TransactionList getByCategory(int categoryId) {
+	public TransactionList selectByCategory(Category category) {
 		List<Transaction> result = new ArrayList<Transaction>();
 		for (Transaction transaction : transactions)
-			if (transaction.getCategoryId() == categoryId)
+			if (transaction.getCategory().equals(category))
 				result.add(transaction);
 		return new TransactionList(result);
 	}
 	
-	public TransactionList getByDate(LocalDate date) {
+	public TransactionList selectByDate(LocalDate date) {
 		List<Transaction> result = new ArrayList<Transaction>();
 		for (Transaction transaction : transactions)
 			if (transaction.getDateTime().toLocalDate().equals(date))
@@ -55,7 +59,7 @@ public class TransactionList {
 		return new TransactionList(result);
 	}
 	
-	public TransactionList getBeforeDate(LocalDate date) {
+	public TransactionList selectBeforeDate(LocalDate date) {
 		List<Transaction> result = new ArrayList<Transaction>();
 		for (Transaction transaction : transactions)
 			if (transaction.getDateTime().toLocalDate().isBefore(date))
@@ -63,7 +67,7 @@ public class TransactionList {
 		return new TransactionList(result);
 	}
 	
-	public TransactionList getAfterDate(LocalDate date) {
+	public TransactionList selectAfterDate(LocalDate date) {
 		List<Transaction> result = new ArrayList<Transaction>();
 		for (Transaction transaction : transactions)
 			if (transaction.getDateTime().toLocalDate().isAfter(date))
